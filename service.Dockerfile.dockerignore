@@ -1,0 +1,8 @@
+# Overrides the service repo's .dockerignore, which only allows a prebuilt jar
+.git
+.gradle
+.idea
+build
+out
+**/*.iml
+.env
