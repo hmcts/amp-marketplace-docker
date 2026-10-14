@@ -93,13 +93,12 @@ jobs:
         with:
           node-version: 22
 
+      # skip-build: no dependency lifecycle scripts run; the smoke tests need none
       - name: Install web test dependencies
         working-directory: web-api-marketplace
-        env:
-          PUPPETEER_SKIP_DOWNLOAD: 'true'
         run: |
           corepack enable
-          yarn install --immutable
+          yarn install --immutable --mode=skip-build
 
       # The chrome project uses the runner's preinstalled Google Chrome
       - name: Run web smoke tests
