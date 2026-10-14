@@ -3,23 +3,22 @@
 Runs the API Marketplace locally with nothing in Azure: `web-api-marketplace`, `service-api-marketplace`,
 Postgres and a mock Entra External ID ([navikt/mock-oauth2-server](https://github.com/navikt/mock-oauth2-server)).
 
-## Prerequisites
+## Setup
 
-Docker Desktop, and both app repos checked out next to this folder:
+Requires Docker Desktop. Clone all three repos into the same folder:
 
-```text
-HMCTS/APIM/
-├── amp-marketplace-docker/
-├── service-api-marketplace/
-└── web-api-marketplace/
+```bash
+git clone git@github.com:hmcts/amp-marketplace-docker.git
+git clone git@github.com:hmcts/web-api-marketplace.git
+git clone git@github.com:hmcts/service-api-marketplace.git
 ```
 
-Each app is built from whatever branch is checked out there.
+Each app is built from whatever branch is checked out in its clone.
 
 ## Run it
 
 ```bash
-cd ~/HMCTS/APIM/amp-marketplace-docker
+cd amp-marketplace-docker
 docker compose up --build      # first build takes a few minutes
 ```
 
