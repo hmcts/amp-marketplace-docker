@@ -1,0 +1,127 @@
+# Brings up the whole marketplace from docker-compose.yml and runs web's @smoke tests against it.
+#
+# Called from web-api-marketplace and service-api-marketplace with the PR's own repository and commit,
+# so each change is checked against the other app's master:
+#
+#   jobs:
+#     stack-smoke:
+#       uses: hmcts/amp-marketplace-docker/.github/workflows/stack-smoke.yml@main
+#       with:
+#         service-repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+#         service-ref: ${{ github.event.pull_request.head.sha || github.sha }}
+name: Stack smoke
+
+on:
+  workflow_call:
+    inputs:
+      web-repository:
+        type: string
+        default: hmcts/web-api-marketplace
+      web-ref:
+        type: string
+        default: master
+      service-repository:
+        type: string
+        default: hmcts/service-api-marketplace
+      service-ref:
+        type: string
+        default: master
+      docker-ref:
+        description: Ref of this repo to take docker-compose.yml from when called from another repo
+        type: string
+        default: main
+  workflow_dispatch:
+    inputs:
+      web-ref:
+        type: string
+        default: master
+      service-ref:
+        type: string
+        default: master
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      # Inside a reusable workflow github.* is the caller's, so only this repo's own runs use its own ref
+      - name: Check out amp-marketplace-docker
+        uses: actions/checkout@v7
+        with:
+          repository: hmcts/amp-marketplace-docker
+          ref: ${{ github.repository == 'hmcts/amp-marketplace-docker' && github.ref || (inputs.docker-ref || 'main') }}
+          path: amp-marketplace-docker
+
+      - name: Check out web-api-marketplace
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.web-repository || 'hmcts/web-api-marketplace' }}
+          ref: ${{ inputs.web-ref || 'master' }}
+          path: web-api-marketplace
+
+      - name: Check out service-api-marketplace
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.service-repository || 'hmcts/service-api-marketplace' }}
+          ref: ${{ inputs.service-ref || 'master' }}
+          path: service-api-marketplace
+
+      - name: Start the stack
+        working-directory: amp-marketplace-docker
+        run: docker compose up --build --detach
+
+      - name: Wait for service and web
+        run: |
+          wait_for () {
+            for _ in $(seq 1 60); do
+              curl -fsS -o /dev/null "$1" && { echo "$1 is up"; return 0; }
+              sleep 5
+            done
+            echo "$1 did not come up within 5 minutes" >&2
+            return 1
+          }
+          wait_for http://localhost:8080/health/readiness
+          wait_for http://localhost:3344/
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Install web test dependencies
+        working-directory: web-api-marketplace
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: 'true'
+        run: |
+          corepack enable
+          yarn install --immutable
+
+      # The chrome project uses the runner's preinstalled Google Chrome
+      - name: Run web smoke tests
+        working-directory: web-api-marketplace
+        env:
+          TEST_URL: http://localhost:3344
+        run: yarn test:smoke --project=chrome
+
+      - name: Container logs
+        if: failure()
+        working-directory: amp-marketplace-docker
+        run: docker compose logs --no-color
+
+      - name: Upload Playwright results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: web-api-marketplace/test-results
+          if-no-files-found: ignore
+
+      - name: Stop the stack
+        if: always()
+        working-directory: amp-marketplace-docker
+        run: docker compose down --volumes

@@ -60,6 +60,10 @@ The username is the token's subject (`sub`). Claims are shaped like External ID'
 
 The mock accepts any client ID, secret and redirect URI, and has no sign-up journey: `prompt=create` shows the same page. Check redirect URIs, the client secret and Entra's own sign-in and sign-up pages against `hmctsextsbox`. The web repo's README covers how.
 
+## In CI
+
+`.github/workflows/stack-smoke.yml` brings the stack up and runs web's `@smoke` Playwright tests against it. web-api-marketplace and service-api-marketplace call it on every PR to `master`, passing their own commit, so each change runs against the other app's `master`. Run it by hand from the Actions tab with any `web-ref` and `service-ref`.
+
 ## Differences from AKS
 
 - Images build on public `node` and `eclipse-temurin`, because `hmctsprod.azurecr.io/base/*` needs an ACR login.
